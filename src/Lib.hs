@@ -61,6 +61,9 @@ data Instruction = NoOp
                  | PushReturn
                  | PopReturn
 
+                 | Read
+                 | Write
+
                  | Call
                  | Exit
 
@@ -98,6 +101,11 @@ step :: Machine -> (Machine, Maybe Output)
 step machine = performInstruction (decodeInstruction (program machine) (pc machine)) machine
     where decodeInstruction program pc = program !! (fromIntegral pc)
           performInstruction NoOp machine = (machine, Nothing)
+          performInstruction (Constant c) machine@(Machine {dataStack=dataStack}) = (machine{dataStack=Stack.push dataStack c}, Nothing)
+          performInstruction Read machine@(Machine {input=input, dataStack=dataStack}) = (machine{input=input', dataStack=Stack.push dataStack c}, Just c)
+              where (c:input') = input
+          performInstruction Write machine@(Machine {dataStack=dataStack}) = (machine{dataStack=dataStack'}, Just c)
+              where (Just (dataStack', c)) = Stack.pop dataStack
 
 output :: Program -> Input -> [Output]
 output program input = catMaybes $ output_ $ machineStart program input
@@ -112,10 +120,15 @@ run program input = do
     mapM_ print $ output program input
     putStrLn "exit"
 
-
 render :: IO ()
 --render = print $ unaryApply BitComplement (2 :: WordUnit)
 render = run [
-    NoOp,
-    NoOp
+    Constant 37,
+    Constant 13,
+    Write,
+    Write,
+    Read,
+    Read,
+    Write,
+    Write
              ] [1..]
