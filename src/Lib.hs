@@ -31,11 +31,11 @@ unaryApply BitComplement = complement
 unaryApply (BitsRotate n) = flip rotate n
 
 data BinaryOperation w = Addition
-                      | Subtraction
-                      | Multiplication
-                      | BitOr
-                      | BitAnd
-                      | BitXor
+                       | Subtraction
+                       | Multiplication
+                       | BitOr
+                       | BitAnd
+                       | BitXor
     deriving (Show, Eq)
 binaryApply :: (Bits w, Num w) => BinaryOperation w -> w -> w -> w
 binaryApply Addition = (+)
@@ -46,28 +46,27 @@ binaryApply BitAnd = (.&.)
 binaryApply BitXor = xor
 
 
-
 data Instruction = NoOp
-                | Store
-                | Retrieve
+                 | Store
+                 | Retrieve
 
-                | Binary (BinaryOperation WordUnit)
-                | Unary (UnaryOperation WordUnit)
+                 | Binary (BinaryOperation WordUnit)
+                 | Unary (UnaryOperation WordUnit)
 
-                | Drop
-                | Duplicate
-                | Swap
-                | Over
+                 | Drop
+                 | Duplicate
+                 | Swap
+                 | Over
 
-                | PushReturn
-                | PopReturn
+                 | PushReturn
+                 | PopReturn
 
-                | Call
-                | Exit
+                 | Call
+                 | Exit
 
-                | If
+                 | If
 
-                | Constant WordUnit
+                 | Constant WordUnit
     deriving (Show, Eq)
 
 
@@ -116,6 +115,7 @@ run program input = do
 
 render :: IO ()
 --render = print $ unaryApply BitComplement (2 :: WordUnit)
-render = run [ NoOp
-             , NoOp
+render = run [
+    NoOp,
+    NoOp
              ] [1..]

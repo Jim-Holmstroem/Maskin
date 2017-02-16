@@ -1,9 +1,10 @@
-module Stack ( empty
-             , isEmpty
-             , push
-             , pop
-             , Stack
-             ) where
+module Stack
+    ( Stack
+    , isEmpty
+    , push
+    , pop
+    , empty
+    ) where
 
 import           Data.Maybe
 
