@@ -97,14 +97,18 @@ machineStart program input = Machine { pc = 0
                                      , returnStack = Stack.empty
                                      }
 
+
+pcPlus :: Machine -> Machine
+pcPlus machine@(Machine {pc = pc}) = machine {pc = pc + 1}
+
 step :: Machine -> (Machine, Maybe Output)
 step machine = performInstruction (decodeInstruction (program machine) (pc machine)) machine
     where decodeInstruction program pc = program !! (fromIntegral pc)
-          performInstruction NoOp machine = (machine, Nothing)
-          performInstruction (Constant c) machine@(Machine {dataStack=dataStack}) = (machine{dataStack=Stack.push dataStack c}, Nothing)
-          performInstruction Read machine@(Machine {input=input, dataStack=dataStack}) = (machine{input=input', dataStack=Stack.push dataStack c}, Just c)
+          performInstruction NoOp machine = (pcPlus machine, Nothing)
+          performInstruction (Constant c) machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=Stack.push dataStack c}, Nothing)
+          performInstruction Read machine@(Machine {input=input, dataStack=dataStack}) = (pcPlus machine{input=input', dataStack=Stack.push dataStack c}, Just c)
               where (c:input') = input
-          performInstruction Write machine@(Machine {dataStack=dataStack}) = (machine{dataStack=dataStack'}, Just c)
+          performInstruction Write machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Just c)
               where (Just (dataStack', c)) = Stack.pop dataStack
 
 output :: Program -> Input -> [Output]
@@ -112,7 +116,7 @@ output program input = catMaybes $ output_ $ machineStart program input
     where output_ machine
               | isDone machine = []
               | otherwise = step_output : output_ machine'
-                  where isDone (Machine { program = program , pc = pc}) = length program > fromIntegral pc
+                  where isDone (Machine { program = program , pc = pc}) = length program <= fromIntegral pc
                         (machine', step_output) = step machine
 
 run :: Program -> Input -> IO ()
