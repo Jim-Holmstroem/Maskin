@@ -106,10 +106,32 @@ step machine = performInstruction (decodeInstruction (program machine) (pc machi
     where decodeInstruction program pc = program !! (fromIntegral pc)
           performInstruction NoOp machine = (pcPlus machine, Nothing)
           performInstruction (Constant c) machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=Stack.push dataStack c}, Nothing)
+
           performInstruction Read machine@(Machine {input=input, dataStack=dataStack}) = (pcPlus machine{input=input', dataStack=Stack.push dataStack c}, Just c)
               where (c:input') = input
           performInstruction Write machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Just c)
               where (Just (dataStack', c)) = Stack.pop dataStack
+
+          performInstruction Drop machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Nothing)
+              where (Just (dataStack', _)) = Stack.pop dataStack
+          performInstruction Duplicate machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Nothing)
+              where (Just (_, c)) = Stack.pop dataStack
+                    dataStack' = Stack.push (Stack.push dataStack c) c
+          performInstruction Swap machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'''}, Nothing)
+              where (Just ( dataStack', c )) = Stack.pop dataStack
+                    (Just (dataStack'', c')) = Stack.pop dataStack'
+                    dataStack''' = Stack.push (Stack.push dataStack'' c) c'
+          performInstruction Over machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'''}, Nothing)
+              where (Just ( dataStack', c )) = Stack.pop dataStack
+                    (Just (dataStack'', c')) = Stack.pop dataStack'
+                    dataStack''' = Stack.push (Stack.push (Stack.push dataStack'' c) c') c
+          performInstruction PopReturn machin@(Machine {returnStack=returnStack, dataStack=dataStack}) = (pcPlus machine{returnStack=returnStack',dataStack=dataStack'}, Nothing)
+              where (Just (returnStack', r)) = Stack.pop returnStack
+                    dataStack' = Stack.pop dataStack r
+          performInstruction PopReturn machin@(Machine {returnStack=returnStack, dataStack=dataStack}) = (pcPlus machine{returnStack=returnStack',dataStack=dataStack'}, Nothing)
+              where (Just (dataStack', r)) = Stack.pop dataStack
+                    returnStack' = Stack.pop returnStack r
+
 
 output :: Program -> Input -> [Output]
 output program input = catMaybes $ output_ $ machineStart program input
@@ -129,10 +151,8 @@ render :: IO ()
 render = run [
     Constant 37,
     Constant 13,
+    Over,
     Write,
-    Write,
-    Read,
-    Read,
     Write,
     Write
              ] [1..]
