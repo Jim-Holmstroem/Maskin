@@ -47,6 +47,8 @@ binaryApply BitXor = xor
 
 
 data Instruction = NoOp
+                 | Constant WordUnit
+
                  | Store
                  | Retrieve
 
@@ -68,8 +70,6 @@ data Instruction = NoOp
                  | Exit
 
                  | If
-
-                 | Constant WordUnit
     deriving (Show, Eq)
 
 
@@ -112,6 +112,15 @@ step machine = performInstruction (decodeInstruction (program machine) (pc machi
           performInstruction Write machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Just c)
               where (Just (dataStack', c)) = Stack.pop dataStack
 
+          performInstruction (Unary f) machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack''}, Nothing)
+              where (Just (dataStack', c)) = Stack.pop dataStack
+                    dataStack'' = Stack.push dataStack' $ unaryApply f c
+          performInstruction (Binary f) machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'''}, Nothing)
+              where (Just ( dataStack', c )) = Stack.pop dataStack
+                    (Just (dataStack'', c')) = Stack.pop dataStack'
+                    dataStack''' = Stack.push dataStack' $ binaryApply f c c'
+
+
           performInstruction Drop machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Nothing)
               where (Just (dataStack', _)) = Stack.pop dataStack
           performInstruction Duplicate machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Nothing)
@@ -127,10 +136,10 @@ step machine = performInstruction (decodeInstruction (program machine) (pc machi
                     dataStack''' = Stack.push (Stack.push (Stack.push dataStack'' c) c') c
           performInstruction PopReturn machin@(Machine {returnStack=returnStack, dataStack=dataStack}) = (pcPlus machine{returnStack=returnStack',dataStack=dataStack'}, Nothing)
               where (Just (returnStack', r)) = Stack.pop returnStack
-                    dataStack' = Stack.pop dataStack r
-          performInstruction PopReturn machin@(Machine {returnStack=returnStack, dataStack=dataStack}) = (pcPlus machine{returnStack=returnStack',dataStack=dataStack'}, Nothing)
+                    dataStack' = Stack.push dataStack r
+          performInstruction PushReturn machin@(Machine {returnStack=returnStack, dataStack=dataStack}) = (pcPlus machine{returnStack=returnStack',dataStack=dataStack'}, Nothing)
               where (Just (dataStack', r)) = Stack.pop dataStack
-                    returnStack' = Stack.pop returnStack r
+                    returnStack' = Stack.push returnStack r
 
 
 output :: Program -> Input -> [Output]
@@ -144,15 +153,12 @@ output program input = catMaybes $ output_ $ machineStart program input
 run :: Program -> Input -> IO ()
 run program input = do
     mapM_ print $ output program input
-    putStrLn "exit"
+    putStrLn "<done>"
 
 render :: IO ()
 --render = print $ unaryApply BitComplement (2 :: WordUnit)
 render = run [
-    Constant 37,
     Constant 13,
-    Over,
-    Write,
-    Write,
+    Unary Increment,
     Write
              ] [1..]
