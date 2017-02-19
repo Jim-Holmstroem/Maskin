@@ -16,6 +16,9 @@ import           Stack (Stack)
 import qualified Zipper
 import           Zipper (Zipper)
 
+import qualified Map
+import           Map (Map)
+
 
 type WordUnit = Word32
 
@@ -77,7 +80,7 @@ type Program = [Instruction]
 type PC = WordUnit
 type Input = [WordUnit]
 type Output = WordUnit
-type Memory = [WordUnit]
+type Memory = Map WordUnit WordUnit
 type DataStack = Stack WordUnit
 type ReturnStack = Stack WordUnit
 
@@ -92,7 +95,7 @@ data Machine = Machine { pc :: WordUnit  -- TODO pc :: PC (via type PC = WordUni
 machineStart program input = Machine { pc = 0
                                      , program = program
                                      , input = input
-                                     , memory = take (2^16) (repeat 0)  -- TODO hard to modify..
+                                     , memory = Map.empty
                                      , dataStack = Stack.empty
                                      , returnStack = Stack.empty
                                      }
@@ -100,6 +103,7 @@ machineStart program input = Machine { pc = 0
 
 pcPlus :: Machine -> Machine
 pcPlus machine@(Machine {pc = pc}) = machine {pc = pc + 1}
+
 
 step :: Machine -> (Machine, Maybe Output)
 step machine = performInstruction (decodeInstruction (program machine) (pc machine)) machine
@@ -134,6 +138,7 @@ step machine = performInstruction (decodeInstruction (program machine) (pc machi
               where (Just ( dataStack', c )) = Stack.pop dataStack
                     (Just (dataStack'', c')) = Stack.pop dataStack'
                     dataStack''' = Stack.push (Stack.push (Stack.push dataStack'' c) c') c
+
           performInstruction PopReturn machin@(Machine {returnStack=returnStack, dataStack=dataStack}) = (pcPlus machine{returnStack=returnStack',dataStack=dataStack'}, Nothing)
               where (Just (returnStack', r)) = Stack.pop returnStack
                     dataStack' = Stack.push dataStack r
@@ -141,6 +146,14 @@ step machine = performInstruction (decodeInstruction (program machine) (pc machi
               where (Just (dataStack', r)) = Stack.pop dataStack
                     returnStack' = Stack.push returnStack r
 
+          performInstruction Store machine@(Machine {dataStack=dataStack, memory=memory}) = (pcPlus machine{dataStack=dataStack'', memory=memory'}, Nothing)
+              where (Just ( dataStack', c )) = Stack.pop dataStack
+                    (Just (dataStack'', c')) = Stack.pop dataStack'
+                    memory' = Map.set (c, c') memory
+          performInstruction Retrieve machine@(Machine {dataStack=dataStack, memory=memory}) = (pcPlus machine{dataStack=dataStack''}, Nothing)
+              where (Just ( dataStack', c )) = Stack.pop dataStack
+                    (Just c') = Map.get c memory
+                    dataStack'' = Stack.push dataStack' c'
 
 output :: Program -> Input -> [Output]
 output program input = catMaybes $ output_ $ machineStart program input
@@ -158,7 +171,10 @@ run program input = do
 render :: IO ()
 --render = print $ unaryApply BitComplement (2 :: WordUnit)
 render = run [
-    Constant 13,
-    Unary Increment,
-    Write
-             ] [1..]
+     Constant 13,
+     Constant 37,
+     Store,
+     Constant 37,
+     Retrieve,
+     Write
+        ] [1..]
