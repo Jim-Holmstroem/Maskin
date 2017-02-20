@@ -19,6 +19,8 @@ import           Zipper (Zipper)
 import qualified Map
 import           Map (Map)
 
+import           Debug.Trace
+
 
 type WordUnit = Word32
 
@@ -121,54 +123,54 @@ step machine = performInstruction (decodeInstruction (program machine) (pc machi
           performInstruction Read machine@(Machine {input=input, dataStack=dataStack}) = (pcPlus machine{input=input', dataStack=Stack.push dataStack c}, Just c)
               where (c:input') = input
           performInstruction Write machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Just c)
-              where (Just (dataStack', c)) = Stack.pop dataStack
+              where Just (dataStack', c) = Stack.pop dataStack
 
           performInstruction (Unary f) machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack''}, Nothing)
-              where (Just (dataStack', c)) = Stack.pop dataStack
+              where Just (dataStack', c) = Stack.pop dataStack
                     dataStack'' = Stack.push dataStack' $ unaryApply f c
           performInstruction (Binary f) machine@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'''}, Nothing)
-              where (Just ( dataStack', c )) = Stack.pop dataStack
-                    (Just (dataStack'', c')) = Stack.pop dataStack'
+              where Just ( dataStack', c ) = Stack.pop dataStack
+                    Just (dataStack'', c') = Stack.pop dataStack'
                     dataStack''' = Stack.push dataStack' $ binaryApply f c c'
 
 
           performInstruction Drop machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Nothing)
-              where (Just (dataStack', _)) = Stack.pop dataStack
+              where Just (dataStack', _) = Stack.pop dataStack
           performInstruction Duplicate machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'}, Nothing)
-              where (Just (_, c)) = Stack.pop dataStack
+              where Just (_, c) = Stack.pop dataStack
                     dataStack' = Stack.push (Stack.push dataStack c) c
           performInstruction Swap machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'''}, Nothing)
-              where (Just ( dataStack', c )) = Stack.pop dataStack
-                    (Just (dataStack'', c')) = Stack.pop dataStack'
+              where Just ( dataStack', c ) = Stack.pop dataStack
+                    Just (dataStack'', c') = Stack.pop dataStack'
                     dataStack''' = Stack.push (Stack.push dataStack'' c) c'
           performInstruction Over machin@(Machine {dataStack=dataStack}) = (pcPlus machine{dataStack=dataStack'''}, Nothing)
-              where (Just ( dataStack', c )) = Stack.pop dataStack
-                    (Just (dataStack'', c')) = Stack.pop dataStack'
+              where Just ( dataStack', c ) = Stack.pop dataStack
+                    Just (dataStack'', c') = Stack.pop dataStack'
                     dataStack''' = Stack.push (Stack.push (Stack.push dataStack'' c) c') c
 
           performInstruction PopReturn machin@(Machine {returnStack=returnStack, dataStack=dataStack}) = (pcPlus machine{returnStack=returnStack',dataStack=dataStack'}, Nothing)
-              where (Just (returnStack', r)) = Stack.pop returnStack
+              where Just (returnStack', r) = Stack.pop returnStack
                     dataStack' = Stack.push dataStack r
           performInstruction PushReturn machin@(Machine {returnStack=returnStack, dataStack=dataStack}) = (pcPlus machine{returnStack=returnStack',dataStack=dataStack'}, Nothing)
-              where (Just (dataStack', r)) = Stack.pop dataStack
+              where Just (dataStack', r) = Stack.pop dataStack
                     returnStack' = Stack.push returnStack r
 
           performInstruction Store machine@(Machine {dataStack=dataStack, memory=memory}) = (pcPlus machine{dataStack=dataStack'', memory=memory'}, Nothing)
-              where (Just ( dataStack', c )) = Stack.pop dataStack
-                    (Just (dataStack'', c')) = Stack.pop dataStack'
+              where Just ( dataStack', c ) = Stack.pop dataStack
+                    Just (dataStack'', c') = Stack.pop dataStack'
                     memory' = Map.set (c, c') memory
           performInstruction Retrieve machine@(Machine {dataStack=dataStack, memory=memory}) = (pcPlus machine{dataStack=dataStack''}, Nothing)
-              where (Just ( dataStack', c )) = Stack.pop dataStack
-                    (Just c') = Map.get c memory
+              where Just ( dataStack', c ) = Stack.pop dataStack
+                    Just c' = Map.get c memory
                     dataStack'' = Stack.push dataStack' c'
 
           performInstruction (Call callPc) machone@(Machine {pc=pc, returnStack=returnStack}) = (machine{pc=callPc, returnStack=returnStack'}, Nothing)
               where returnStack' = Stack.push returnStack pc
-          performInstruction Exit machine@(Machine {returnStack=returnStack}) = (machine{pc=exitPc, returnStack=returnStack'}, Nothing)
-              where (Just (returnStack', exitPc)) = Stack.pop returnStack
+          performInstruction Exit machine@(Machine {returnStack=returnStack}) = (pcPlus machine{pc=exitPc, returnStack=returnStack'}, Nothing)
+              where Just (returnStack', exitPc) = Stack.pop returnStack
 
           performInstruction (If ifPc) machine@(Machine {pc=pc, dataStack=dataStack}) = (machine{pc=pc', dataStack=dataStack'}, Nothing)
-              where (Just (dataStack', c)) = Stack.pop dataStack
+              where Just (dataStack', c) = Stack.pop dataStack
                     pc' = if c == 0 then ifPc else pc + 1
 
 output :: Program -> Input -> [Output]
@@ -187,11 +189,16 @@ run program input = do
 render :: IO ()
 --render = print $ unaryApply BitComplement (2 :: WordUnit)
 render = run [
-     Constant 13,
-     Unary Decrement,
-     Duplicate,
-     Write,
-     Constant 0,
-     Binary Equal,
-     If 1
+    Constant 0,
+    If 6,
+    Unary Decrement,
+    Duplicate,
+    Write,
+    Exit,
+    Constant 10,
+    Call 2,
+    Duplicate,
+    Constant 0,
+    Binary Equal,
+    If 7
         ] [1..]
