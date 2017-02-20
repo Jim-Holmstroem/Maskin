@@ -24,26 +24,30 @@ type WordUnit = Word32
 
 data UnaryOperation w = Increment
                       | Decrement
+                      | Not
                       | BitComplement
                       | BitsRotate Int
     deriving (Show, Eq)
-unaryApply :: (Bits w, Num w) => UnaryOperation w -> w -> w
+unaryApply :: (Bits w, Num w, Ord w) => UnaryOperation w -> w -> w
 unaryApply Increment = (+1)
 unaryApply Decrement = (+(-1))
+unaryApply Not = \x -> if x == 0 then 1 else 0
 unaryApply BitComplement = complement
 unaryApply (BitsRotate n) = flip rotate n
 
 data BinaryOperation w = Addition
                        | Subtraction
                        | Multiplication
+                       | Equal
                        | BitOr
                        | BitAnd
                        | BitXor
     deriving (Show, Eq)
-binaryApply :: (Bits w, Num w) => BinaryOperation w -> w -> w -> w
+binaryApply :: (Bits w, Num w, Ord w) => BinaryOperation w -> w -> w -> w
 binaryApply Addition = (+)
 binaryApply Subtraction = (-)
 binaryApply Multiplication = (*)
+binaryApply Equal = \x y -> if x == y then 1 else 0
 binaryApply BitOr = (.|.)
 binaryApply BitAnd = (.&.)
 binaryApply BitXor = xor
@@ -69,12 +73,15 @@ data Instruction = NoOp
                  | Read
                  | Write
 
-                 | Call
+                 | Call WordUnit
                  | Exit
 
-                 | If
+                 | If WordUnit
     deriving (Show, Eq)
 
+
+-- TODO different types on the "WordUnits" and "Map" just so that typing
+-- can verify things like swaping returnStack,dataStack or reading dataStack to pc
 
 type Program = [Instruction]
 type PC = WordUnit
@@ -155,6 +162,15 @@ step machine = performInstruction (decodeInstruction (program machine) (pc machi
                     (Just c') = Map.get c memory
                     dataStack'' = Stack.push dataStack' c'
 
+          performInstruction (Call callPc) machone@(Machine {pc=pc, returnStack=returnStack}) = (machine{pc=callPc, returnStack=returnStack'}, Nothing)
+              where returnStack' = Stack.push returnStack pc
+          performInstruction Exit machine@(Machine {returnStack=returnStack}) = (machine{pc=exitPc, returnStack=returnStack'}, Nothing)
+              where (Just (returnStack', exitPc)) = Stack.pop returnStack
+
+          performInstruction (If ifPc) machine@(Machine {pc=pc, dataStack=dataStack}) = (machine{pc=pc', dataStack=dataStack'}, Nothing)
+              where (Just (dataStack', c)) = Stack.pop dataStack
+                    pc' = if c == 0 then ifPc else pc + 1
+
 output :: Program -> Input -> [Output]
 output program input = catMaybes $ output_ $ machineStart program input
     where output_ machine
@@ -172,9 +188,10 @@ render :: IO ()
 --render = print $ unaryApply BitComplement (2 :: WordUnit)
 render = run [
      Constant 13,
-     Constant 37,
-     Store,
-     Constant 37,
-     Retrieve,
-     Write
+     Unary Decrement,
+     Duplicate,
+     Write,
+     Constant 0,
+     Binary Equal,
+     If 1
         ] [1..]
